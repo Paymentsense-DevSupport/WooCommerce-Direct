@@ -46,9 +46,9 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ));
 		add_action( 'woocommerce_api_wc_gateway_paymentsense_direct', array( $this, 'check_passback' ) );
 		$this->notify_url   = add_query_arg( 'wc-api', 'WC_Gateway_Paymentsense_Direct', home_url('/') );
-		if ( 'yes' == $this->debug)
+		if ( $this->debug == "yes")
 		{
-			$this->log = $woocommerce->logger();
+			$this->log = new WC_Logger();
 		}
 	}
 	
@@ -178,7 +178,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 	function payment_fields() 
 	{
 		global $woocommerce;
-		if ($this->testmode=='yes') 
+		if ($this->testmode=="yes")
 		{ 
 		?>
 			<p>
@@ -396,6 +396,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 				$port = "4430";
 				$transattempt = 1;
 				$soapSuccess = false;
+                $transaction_status = 'failed';
 				
 				while(!$soapSuccess && $gwId <= 3 && $transattempt <= 3)
 				{
@@ -426,6 +427,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 				    curl_close($curl);
 				    $curl = null;
 				    //die($ret);
+
 				    if($err == 0)
 				    {
 				        $StatusCode = $this->GetXMLValue("StatusCode", $ret, "[0-9]+");
@@ -450,11 +452,12 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 				                    case 0:
 				                        // transaction authorised
 				                        $transaction_status = 'success';
+										$this->log->add( 'paymentsense_direct', 'Status Code 0 - Payment successful.');
 				                        break;
 				                    case 3:
 				                        //3D Secure Auth required
 				                        //Gather required variables
-				                        if ('yes'==$this->debug)
+				                        if ("yes"==$this->debug)
 				                        {
 				                            $this->log->add( 'paymentsense_direct', '3D Secure authentication required');
 				                        }
@@ -523,6 +526,8 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 				        $gwId++;
 				    }
 				}
+
+				$szMessage = $this->GetXMLValue("Message", $ret, ".+");
 								
 				if($transaction_status == 'success')
 				{
@@ -535,8 +540,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 				}
 				elseif ($transaction_status == 'failed')
 				{
-				    //die("123456");
-					$order->get_checkout_payment_url(false);
+				    $order->get_checkout_payment_url(false);
 					$order->update_status('failed', sprintf( __( 'Payment Failed due to: %s .<br />', 'woocommerce' ), strtolower( $szMessage ) ));
 					wc_add_notice(__('Payment Failed due to: ', 'woothemes') . $szMessage. '<br /> Please check your card details and try again.', 'error');
 					
@@ -546,7 +550,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 			} 
     		catch(Exception $ex)
     		{
-    			if ($this->debug=='yes')
+    			if ($this->debug=="yes")
     			{
     				$this->log->add( 'paymentsense_direct', "Error: " . $szMessage);
     			}
@@ -567,7 +571,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 			$hashdigest = '';
 			$paymentsense_sess = $woocommerce->session->paymentsense;
 			
-			if ($this->debug=='yes')
+			if ($this->debug=="yes")
 			{
 				$this->log->add( 'paymentsense_direct', "Generate form session: ". print_r($paymentsense_sess, true) );
 			}
@@ -653,7 +657,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 		);
 		if(empty($_GET['paymentsense']) && !empty($_POST['PaRes']) && !empty($_POST['MD']))
 		{
-			if ($this->debug=='yes')
+			if ($this->debug=="yes")
 			{
 				$this->log->add( 'paymentsense_direct', "Passback: ". print_r($_POST, true) );
 			}
@@ -694,7 +698,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 		$redirect = get_permalink(woocommerce_get_page_id('cart')); 
 
 		/*default redirect to cart*/
-		if ($this->debug=='yes')
+		if ($this->debug=="yes")
 		{
 			$this->log->add( 'paymentsense_direct', "Confirm: ". print_r($_POST, true) );
 		}
@@ -788,7 +792,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 			                        /* status code of 0 - means transaction successful
             							* Successful payment
             							*/							
-            							if ('yes'==$this->debug)
+            							if ("yes"==$this->debug)
             							{
             								$this->log->add( 'paymentsense_direct', 'PaymentSenes payment 3D completed');
             							}
@@ -822,7 +826,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 			            else 
 			            {
 			                // status code is 30 - error occured
-			                if ($this->debug=='yes')
+			                if ($this->debug=="yes")
             				{
             					$this->log->add( 'paymentsense_direct', 'Variable tampering detected' );
             				}
@@ -835,7 +839,7 @@ class WC_Gateway_Paymentsense_Direct extends WC_Payment_Gateway
 		}
 		else
 		{
-			if ($this->debug=='yes')
+			if ($this->debug=="yes")
 			{
 				$this->log->add( 'paymentsense_direct', 'Empty Shopping Cart Hash Digest' );
 			}
